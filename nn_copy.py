@@ -10,6 +10,10 @@ import numpy as np
 import random
 import gym
 
+from parser_file import layer_constant
+from parser_file import no_iter, genetic_value
+from parser_file import cross_mutate_value
+
 class pyGad:
     def __init__(self, pop_size, iter):
         self.env = None
@@ -34,8 +38,15 @@ class pyGad:
 
     def create_individual(self, inp_shape, out_size):
         model = Sequential()
-        model.add(Dense(30, activation='relu', input_shape=inp_shape))
-        model.add(Dense(10, activation='relu'))
+        layer, layer_detail, activation_detail = layer_constant()
+        #model.add(Dense(30, activation='relu', input_shape=inp_shape))
+        #model.add(Dense(10, activation='relu'))
+        
+        model.add(Dense(layer_detail[0], activation=activation_detail[0], input_shape=inp_shape))
+
+        for i in range(layer-1):
+            model.add(Dense(layer_detail[i+1], activation=activation_detail[i+1]))
+
         model.add(Dense(out_size, activation='softmax'))
         return model
 
@@ -65,8 +76,8 @@ class pyGad:
 
     def fitness_function(self, curr_action, prev_action):
         if(abs(curr_action - prev_action) == 1):
-            return 2.0 
-        return 0.0
+            return 1.0 
+        return -1.0
 
     def play_current_best(self, index_value):
         
@@ -112,22 +123,36 @@ class pyGad:
         self.generation_no += 1
         new_generation = []
 
+        cross, mutate = cross_mutate_value()
+
         #adding top_k models to the next generation
-        top_k_models = self.top_k_population(2)
+        genome_no, generation_no = genetic_value()
+        top_k_models = self.top_k_population(genome_no)
         new_generation.append(top_k_models[0])
 
+        k = 0
+
+        for i in range(len(mutate)):
+            if mutate[i] == -1:
+                new_generation.append(top_k_models[k])
+                k = k+1
+            else:
+                new_generation.append(self.mutate_operator(0.2, top_k_models[mutate[i]-1]))
+
+        for i in range(len(cross)):
+            new_generation.append(self.crossover_operator(0.5, top_k_models[cross[i][0]], top_k_models[cross[i][1]]))
+
         #adding top mutated models
-        new_generation.append(self.mutate_operator(0.2, top_k_models[0]))
-        new_generation.append(self.mutate_operator(0.2, top_k_models[1]))
+        #new_generation.append(self.mutate_operator(0.2, top_k_models[0]))
+        #new_generation.append(self.mutate_operator(0.2, top_k_models[1]))
 
         #creating offsprint of the two models
-        new_generation.append(self.crossover_operator(0.5, top_k_models[0], top_k_models[1]))
+        #new_generation.append(self.crossover_operator(0.5, top_k_models[0], top_k_models[1]))
 
         #creating a random environment
-        model = self.create_individual(self.get_observation_size(), 
-                                                self.get_action_size())
-
-        new_generation.append(model)
+        #model = self.create_individual(self.get_observation_size(), 
+        #                                        self.get_action_size())
+        #new_generation.append(model)
 
         #and other GA algorithms
         
